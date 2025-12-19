@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Responder enlaces</title>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCIGtyEtIy2ImpheQlmpE7gsBt3vGzuuR0",
+    authDomain: "codificador-33d74.firebaseapp.com",
+    projectId: "codificador-33d74",
+    storageBucket: "codificador-33d74.firebasestorage.app",
+    messagingSenderId: "877638420434",
+    appId: "1:877638420434:web:da4fab000893c1e584aa0b"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+
+  const container = document.getElementById('list');
+
+  if (!id) {
+    container.textContent = 'ID inválido';
+  } else {
+    const ref = doc(db, 'links', id);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      container.textContent = 'No encontrado';
+    } else {
+      const links = snap.data().links;
+      container.innerHTML = links
+        .map(l => `<a href="${l}" target="_blank">${l}</a>`)
+        .join('');
+    }
+  }
+</script>
+
+<style>
+body { font-family: Arial; padding: 20px; background: #f7f7f7; }
+a { display:block; margin-bottom:10px; word-break:break-all; }
+</style>
+</head>
+<body>
+
+<h2>Enlaces para responder</h2>
+<div id="list">Cargando...</div>
+
+</body>
+</html>
