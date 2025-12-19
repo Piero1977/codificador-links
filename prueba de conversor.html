@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Codificador de links (Claro) — Espacios as +</title>
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;padding:20px;background:#f7f7f7;color:#222;}
+  textarea{width:100%;min-height:160px;padding:10px;font-size:14px;border-radius:6px;border:1px solid #ccc;box-sizing:border-box}
+  button{padding:8px 12px;border:none;border-radius:6px;background:#d50000;color:#fff;cursor:pointer;margin:6px 0;}
+  .result{background:#fff;padding:10px;border-radius:6px;border:1px solid #ddd;margin-top:12px;}
+  .row{display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  .link{flex:1;word-break:break-all}
+  .small{font-size:13px;color:#666}
+  .dup{color:#b00020;font-weight:700}
+</style>
+</head>
+<body>
+  <h2>Codificador de links — formato Claro</h2>
+  <p>Pega aquí tus enlaces (puedes pegar muchos seguidos, en una línea o varios):</p>
+  <textarea id="input" placeholder="Pega los enlaces..."></textarea>
+  <div style="margin-top:8px">
+    <button id="run">Generar enlaces codificados</button>
+    <button id="clear" style="background:#777">Limpiar</button>
+  </div>
+
+  <div id="out"></div>
+
+<script>
+/*
+  Lógica:
+  - Se separan los textos buscando "https://"
+  - Para cada URL encontrada, separamos base (hasta '?') y query
+  - Codificamos cada clave y valor POR SEPARADO
+    - Para valores usamos encodeURIComponent -> luego reemplazamos %20 por + (pero mejor: usamos replace de espacios por + antes)
+    - Para fechas con "/" encodeURIComponent hará %2F
+  - Mantenemos cualquier "?" literal que aparezca en nombres de parámetros (p.ej. "?FirstName") sin transformarlo en %3F.
+  - Detectamos SN= tokens y buscamos duplicados (igual exacto)
+*/
+
+function smartEncodeKey(k){
+  // queremos: espacios -> +, mantener leading '?' literal, codificar acentos y símbolos
+  // si la key empieza con '?', preservarla y codificar el resto
+  let leading = '';
+  if(k.startsWith('?')){ leading='?'; k=k.slice(1); }
+  // replace spaces by + before encoding, so encoded + remains + (and not %20)
+  k = k.replace(/ /g,'+');
+  // encode remaining chars (keep + and [] and _.-)
+  return leading + encodeURIComponent(k).replace(/%2B/g,'+')
+                                       .replace(/%5B/g,'%5B').replace(/%5D/g,'%5D');
+}
+
+function smartEncodeValue(v){
+  // Replace spaces by +, then encode everything (so @ -> %40, / -> %2F, etc.)
+  // We must ensure plus signs within original value are preserved as + if present.
+  // First, trim
+  v = v.trim();
+  // Replace spaces with plus signs
+  v = v.replace(/ /g,'+');
+  // Now encode non-safe chars BUT keep '+' unchanged (because we already put them)
+  // encodeURIComponent will encode '+' -> %2B, so we temporarily replace '+' with a placeholder.
+  const placeholder = '___PLUS___';
+  v = v.replace(/\+/g, placeholder);
+  v = encodeURIComponent(v);
+  v = v.replace(new RegExp(placeholder,'g'), '+');
+  return v;
+}
+
+function processOne(raw){
+  raw = raw.trim();
+  if(!raw) return null;
+  // find first occurrence of '?' after base
+  const qIndex = raw.indexOf('?');
+  if(qIndex === -1){
+    // no query: return raw as-is
+    return {orig: raw, encoded: raw, SN: null};
+  }
+  const base = raw.slice(0, qIndex);
+  const query = raw.slice(qIndex+1);
+  // split by '&' but keep empty parts
+  const parts = query.split('&');
+  const outParts = [];
+  let SNvalue = null;
+  for(const p of parts){
+    if(p === '') continue;
+    const eq = p.indexOf('=');
+    if(eq === -1){
+      // flag-like param
+      const k = smartEncodeKey(p);
+      outParts.push(k);
+      continue;
+    }
+    const key = p.slice(0, eq);
+    const val = p.slice(eq+1);
+    const kEnc = smartEncodeKey(key);
+    const vEnc = smartEncodeValue(val);
+    outParts.push(kEnc + '=' + vEnc);
+    // capture SN
+    if(key.trim().toUpperCase().startsWith('SN')){
+      SNvalue = val.trim();
+    }
+  }
+  const encoded = base + '?' + outParts.join('&');
+  return {orig: raw, encoded, SN: SNvalue || null};
+}
+
+document.getElementById('run').addEventListener('click', ()=>{
+  const txt = document.getElementById('input').value;
+  if(!txt.trim()){ alert('Pega tus enlaces primero'); return; }
+  // split by occurrences of "https://" (preserve prefix)
+  const parts = txt.split(/(?=https?:\/\/)/i).map(s=>s.trim()).filter(Boolean);
+  const processed = parts.map(processOne).filter(Boolean);
+  const container = document.getElementById('out');
+  container.innerHTML = '';
+  const seenSN = {};
+  processed.forEach((p, idx)=>{
+    const box = document.createElement('div');
+    box.className = 'result';
+    const row = document.createElement('div'); row.className='row';
+    const a = document.createElement('a'); a.href='#'; a.className='link';
+    a.textContent = p.encoded;
+    // copy button
+    const btn = document.createElement('button');
+    btn.textContent = 'Copiar';
+    btn.onclick = ()=>{ navigator.clipboard.writeText(p.encoded).then(()=>alert('Copiado')); };
+    row.appendChild(a);
+    row.appendChild(btn);
+    box.appendChild(row);
+    const meta = document.createElement('div'); meta.className='small';
+    meta.innerHTML = `Original: <span class="small">${p.orig}</span>`;
+    box.appendChild(meta);
+    if(p.SN){
+      // SN display and track duplicates
+      if(!seenSN[p.SN]) seenSN[p.SN] = [];
+      seenSN[p.SN].push(idx+1);
+      const snDiv = document.createElement('div'); snDiv.className='small';
+      snDiv.innerHTML = `SN: <strong>${p.SN}</strong>`;
+      box.appendChild(snDiv);
+    }
+    container.appendChild(box);
+  });
+
+  // report duplicates (only SN with count>1)
+  const dupKeys = Object.keys(seenSN).filter(k => seenSN[k].length > 1);
+  const summary = document.createElement('div'); summary.style.marginTop='12px';
+  if(dupKeys.length){
+    const h = document.createElement('div'); h.innerHTML = '<strong>SN duplicados encontrados:</strong>';
+    summary.appendChild(h);
+    dupKeys.forEach(k=>{
+      const d = document.createElement('div');
+      d.innerHTML = `<span class="dup">${k}</span> — posiciones: ${seenSN[k].join(', ')}`;
+      summary.appendChild(d);
+    });
+  } else {
+    summary.innerHTML = '<div class="small">No se encontraron SN duplicados entre los enlaces procesados.</div>';
+  }
+  container.appendChild(summary);
+});
+
+document.getElementById('clear').addEventListener('click', ()=>{
+  document.getElementById('input').value = '';
+  document.getElementById('out').innerHTML = '';
+});
+</script>
+</body>
+</html>
