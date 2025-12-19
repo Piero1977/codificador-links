@@ -44,6 +44,7 @@
   <div style="margin-top:8px">
     <button id="run">Generar enlaces codificados</button>
     <button id="clear" style="background:#777">Limpiar</button>
+    <button id="save" style="background:#198754">Generar URL para responder</button>
   </div>
 
   <div id="out"></div>
@@ -183,9 +184,38 @@ document.getElementById('clear').addEventListener('click', ()=>{
   document.getElementById('input').value = '';
   document.getElementById('out').innerHTML = '';
 });
+
+  document.getElementById('save').addEventListener('click', async () => {
+  const links = [...document.querySelectorAll('.link')]
+    .map(a => a.textContent.trim())
+    .filter(Boolean);
+
+  if (!links.length) {
+    alert('Primero genera los enlaces');
+    return;
+  }
+
+  try {
+    const docRef = await addDoc(collection(db, "links"), {
+      links,
+      createdAt: Date.now()
+    });
+
+    const base = location.origin + location.pathname.replace(/\/[^\/]*$/, '/');
+    const url = base + 'ver.html?id=' + docRef.id;
+
+    alert('URL generada:\n\n' + url);
+  } catch (e) {
+    console.error(e);
+    alert('Error al guardar los enlaces');
+  }
+});
+
+  
 </script>
 </body>
 </html>
+
 
 
 
