@@ -14,24 +14,25 @@
   .dup{color:#b00020;font-weight:700}
 </style>
 
-<!-- Firebase (SDK compat para HTML plano) -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-<script>
   const firebaseConfig = {
     apiKey: "AIzaSyCIGtyEtIy2ImpheQlmpE7gsBt3vGzuuR0",
     authDomain: "codificador-33d74.firebaseapp.com",
     projectId: "codificador-33d74",
     storageBucket: "codificador-33d74.firebasestorage.app",
     messagingSenderId: "877638420434",
-    appId: "1:877638420434:web:da4fab000893c1e584aa0b",
-    measurementId: "G-PRLH5S6JMY"
+    appId: "1:877638420434:web:da4fab000893c1e584aa0b"
   };
 
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
+  const app = initializeApp(firebaseConfig);
+  window.db = getFirestore(app);
+  window.addDoc = addDoc;
+  window.collection = collection;
 </script>
+
 
 
   
@@ -185,5 +186,6 @@ document.getElementById('clear').addEventListener('click', ()=>{
 </script>
 </body>
 </html>
+
 
 
